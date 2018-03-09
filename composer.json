@@ -15,7 +15,7 @@
   ],
   "require": {
     "uniondrug/framework": "^2.0",
-    "uniondrug/struct": "^2.0",
+    "uniondrug/structs": "^2.0",
     "uniondrug/server": "^2.0",
     "dragonmantank/cron-expression": "^2.0"
   },
