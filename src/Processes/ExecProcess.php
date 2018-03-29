@@ -43,6 +43,11 @@ class ExecProcess extends Process
      */
     protected $workers = [];
 
+    /**
+     * @param \swoole_process $swoole_process
+     *
+     * @return callable|void
+     */
     public function handle(swoole_process $swoole_process)
     {
         parent::handle($swoole_process);
@@ -105,8 +110,6 @@ class ExecProcess extends Process
 
     /**
      * 初始化通道。用于与子进程通信。
-     *
-     * @throws \Exception
      */
     protected function initChannel()
     {
