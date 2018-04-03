@@ -1,6 +1,6 @@
 {
   "name": "uniondrug/crontab",
-  "description": "Crontab component for uniondrug/framework",
+  "description": "Uniondrug Crontab Component for uniondrug/framework",
   "keywords": [
     "phalcon",
     "crontab"
@@ -15,7 +15,6 @@
   ],
   "require": {
     "uniondrug/framework": "^2.0",
-    "uniondrug/structs": "^2.0",
     "uniondrug/server": "^2.0",
     "dragonmantank/cron-expression": "^2.0"
   },
