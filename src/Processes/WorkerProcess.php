@@ -8,9 +8,8 @@ namespace Uniondrug\Crontab\Processes;
 
 use swoole_process;
 use Uniondrug\Crontab\Structs\RuntimeTaskStruct;
-use Uniondrug\Server\Process;
 
-class WorkerProcess extends Process
+class WorkerProcess extends AbstractProcess
 {
     /**
      * @var int
@@ -75,7 +74,7 @@ class WorkerProcess extends Process
                     app()->getShared($data->handler)->handle([]);
                 }
 
-                $counter ++;
+                $counter++;
             } catch (\Exception $e) {
                 app()->getLogger('crontab')->error(sprintf("[CrontabWorkerProcess] Run task failed: %s", $e->getMessage()));
             }

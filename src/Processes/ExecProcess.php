@@ -9,9 +9,8 @@ namespace Uniondrug\Crontab\Processes;
 use Swoole\Channel;
 use Swoole\Lock;
 use swoole_process;
-use Uniondrug\Server\Process;
 
-class ExecProcess extends Process
+class ExecProcess extends AbstractProcess
 {
     /**
      * @var \Swoole\Channel
@@ -153,6 +152,8 @@ class ExecProcess extends Process
      */
     protected function initWorker($id = 0)
     {
+        $this->resetConnections();
+
         $pid = (new WorkerProcess(app()->getName() . " [CrontabWorkerProcess #$id]"))->configure([
             'channel' => $this->channel,
             'locker'  => $this->locker,
