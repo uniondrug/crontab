@@ -9,9 +9,8 @@ namespace Uniondrug\Crontab\Processes;
 use Swoole\Channel;
 use Swoole\Lock;
 use swoole_process;
-use Uniondrug\Server\Process;
 
-class ExecProcess extends Process
+class ExecProcess extends AbstractProcess
 {
     /**
      * @var \Swoole\Channel
