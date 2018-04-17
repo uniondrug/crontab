@@ -17,7 +17,7 @@ class AbstractProcess extends Process
 
         $this->resetConnections();
 
-        $this->databaseHeartbeat();
+        $this->keepHeartbeat();
     }
 
     /**
@@ -38,9 +38,39 @@ class AbstractProcess extends Process
     }
 
     /**
+     * 测试数据库链接，并尝试重连。3次失败后退出进程。
+     */
+    public function testConnections()
+    {
+        foreach (['db', 'dbSlave'] as $serviceName) {
+            if (app()->hasSharedInstance($serviceName)) {
+                $tryTimes = 0;
+                $maxRetry = app()->getConfig()->path('database.max_retry', 3);
+                while ($tryTimes < $maxRetry) {
+                    try {
+                        @app()->getShared($serviceName)->query("select 1");
+                    } catch (\Exception $e) {
+                        app()->getLogger('database')->alert("[{$this->process->pid}] [$serviceName] connection lost ({$e->getMessage()})");
+                        if (preg_match("/(errno=32 Broken pipe)|(MySQL server has gone away)/i", $e->getMessage())) {
+                            $tryTimes++;
+                            app()->removeSharedInstance($serviceName);
+                            app()->getLogger('database')->alert("[{$this->process->pid}] [$serviceName] try to reconnect[$tryTimes]");
+                            continue;
+                        } else {
+                            app()->getLogger('database')->error("[{$this->process->pid}] [$serviceName] try to reconnect failed");
+                            process_kill($this->process->pid);
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    /**
      * 数据库进程内心跳
      */
-    public function databaseHeartbeat()
+    public function keepHeartbeat()
     {
         // 挂起定时器，让数据库保持连接
         $interval = app()->getConfig()->path('database.interval', 0);
@@ -48,7 +78,7 @@ class AbstractProcess extends Process
             swoole()->tick($interval * 1000, function ($id, $params = []) {
                 $pid = getmypid();
                 foreach (['db', 'dbSlave'] as $dbServiceName) {
-                    if (app()->has($dbServiceName)) {
+                    if (app()->hasSharedInstance($dbServiceName)) {
                         $tryTimes = 0;
                         $maxRetry = app()->getConfig()->path('database.max_retry', 3);
                         while ($tryTimes < $maxRetry) {

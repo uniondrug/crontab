@@ -65,6 +65,9 @@ class WorkerProcess extends AbstractProcess
                     continue;
                 }
 
+                // reset connection
+                $this->testConnections();
+
                 // 争抢到一个任务后，释放锁
                 $this->locker->unlock();
 
