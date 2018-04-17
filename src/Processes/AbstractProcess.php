@@ -16,6 +16,8 @@ class AbstractProcess extends Process
         parent::handle($swoole_process);
 
         $this->resetConnections();
+
+        $this->databaseHeartbeat();
     }
 
     /**
