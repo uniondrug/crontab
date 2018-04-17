@@ -36,6 +36,43 @@ class AbstractProcess extends Process
     }
 
     /**
+     * 数据库进程内心跳
+     */
+    public function databaseHeartbeat()
+    {
+        // 挂起定时器，让数据库保持连接
+        $interval = app()->getConfig()->path('database.interval', 0);
+        if ($interval) {
+            swoole()->tick($interval * 1000, function ($id, $params = []) {
+                $pid = getmypid();
+                foreach (['db', 'dbSlave'] as $dbServiceName) {
+                    if (app()->has($dbServiceName)) {
+                        $tryTimes = 0;
+                        $maxRetry = app()->getConfig()->path('database.max_retry', 3);
+                        while ($tryTimes < $maxRetry) {
+                            try {
+                                @app()->getShared($dbServiceName)->query("select 1");
+                            } catch (\Exception $e) {
+                                app()->getLogger('database')->alert("[$pid] [$dbServiceName] connection lost ({$e->getMessage()})");
+                                if (preg_match("/(errno=32 Broken pipe)|(MySQL server has gone away)/i", $e->getMessage())) {
+                                    $tryTimes++;
+                                    app()->removeSharedInstance($dbServiceName);
+                                    app()->getLogger('database')->alert("[$pid] [$dbServiceName] try to reconnect[$tryTimes]");
+                                    continue;
+                                } else {
+                                    app()->getLogger('database')->error("[$pid] [$dbServiceName] try to reconnect failed");
+                                    process_kill($pid);
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    /**
      * 通过魔术方法调用服务
      *
      * @param $name

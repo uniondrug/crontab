@@ -152,6 +152,8 @@ class ExecProcess extends AbstractProcess
      */
     protected function initWorker($id = 0)
     {
+        $this->resetConnections();
+
         $pid = (new WorkerProcess(app()->getName() . " [CrontabWorkerProcess #$id]"))->configure([
             'channel' => $this->channel,
             'locker'  => $this->locker,
