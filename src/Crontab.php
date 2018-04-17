@@ -114,7 +114,14 @@ class Crontab extends Injectable
                     continue;
                 }
                 $scheduleAnnotation = $classAnnotations->get(self::ANNOTATION_NAME);
-                $scheduleStruct = ScheduleStruct::factory($scheduleAnnotation->getArguments());
+                $data = $scheduleAnnotation->getArguments();
+                if (isset($data['cron'])) {
+                    $data['cron'] = str_replace('#', '*', $data['cron']);
+                }
+                if (isset($data['second'])) {
+                    $data['second'] = str_replace('#', '*', $data['second']);
+                }
+                $scheduleStruct = ScheduleStruct::factory($data);
                 $scheduleStruct->handler = $className;
 
                 if (!$scheduleStruct->cron || !CronExpression::isValidExpression($scheduleStruct->cron)) {
