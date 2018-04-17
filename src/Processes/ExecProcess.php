@@ -162,10 +162,10 @@ class ExecProcess extends Process
             // 关联记录工作进程的PID
             $this->workers[$id] = $pid;
             console()->debug("[CrontabExecProcess] Worker[$pid] #$id started");
-            app()->getLogger()->debug("[CrontabExecProcess] Worker[$pid] #$id started");
+            app()->getLogger('crontab')->debug("[CrontabExecProcess] Worker[$pid] #$id started");
         } else {
             console()->debug("[CrontabExecProcess] Start worker #$id failed");
-            app()->getLogger()->error("[CrontabExecProcess] Start worker #$id failed");
+            app()->getLogger('crontab')->error("[CrontabExecProcess] Start worker #$id failed");
         }
     }
 
