@@ -8,8 +8,10 @@ namespace Uniondrug\Crontab\Processes;
 
 use swoole_process;
 use Uniondrug\Crontab\Structs\RuntimeTaskStruct;
+use Uniondrug\Server\Process;
+use Uniondrug\Server\Utils\Connections;
 
-class WorkerProcess extends AbstractProcess
+class WorkerProcess extends Process
 {
     /**
      * @var int
@@ -66,7 +68,7 @@ class WorkerProcess extends AbstractProcess
                 }
 
                 // reset connection
-                $this->testConnections();
+                Connections::testConnections();
 
                 // 争抢到一个任务后，释放锁
                 $this->locker->unlock();

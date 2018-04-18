@@ -8,8 +8,9 @@
 namespace Uniondrug\Crontab\Processes;
 
 use swoole_process;
+use Uniondrug\Server\Process;
 
-class ManagerProcess extends AbstractProcess
+class ManagerProcess extends Process
 {
     public function handle(swoole_process $swoole_process)
     {
