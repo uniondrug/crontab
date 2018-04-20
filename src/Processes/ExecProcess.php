@@ -86,7 +86,7 @@ class ExecProcess extends Process
         swoole()->tick(0.5 * 1000, [$this, 'workersManager']);
 
         // 待办任务检索器
-        swoole()->tick(0.5 * 1000, [$this, 'loadExecTask']);
+        swoole()->tick(1 * 1000, [$this, 'loadExecTask']);
 
         // 待办任务分发器
         swoole()->tick(0.5 * 1000, [$this, 'dispatch']);
@@ -98,10 +98,10 @@ class ExecProcess extends Process
     public function loadExecTask()
     {
         // 取出每秒需要运行的任务
-        $tasks = app()->getShared('crontabService')->getExecTasks();
+        $tasks = $this->crontabService->getExecTasks();
         foreach ($tasks as $key => $runtimeTaskStruct) {
             $this->taskQueue->enqueue(['key' => $key, 'val' => $runtimeTaskStruct]);
-            app()->getShared('crontabService')->startTask($key);
+            $this->crontabService->startTask($key);
         }
     }
 

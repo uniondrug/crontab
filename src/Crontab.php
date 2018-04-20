@@ -207,6 +207,7 @@ class Crontab extends Injectable
                 $this->runtimeTable->del($key); // recall
                 $this->runtimeTable->del($key);
                 $this->runtimeTable->del($key);
+                $this->runtimeTable->del($key);
             }
         }
     }

@@ -25,9 +25,9 @@ class ManagerProcess extends Process
         if (app()->has('crontabService')) {
             $time = (60 - date('s')) * 1000; // 确保每分钟的0秒
             swoole()->after($time, function () {
-                app()->getShared('crontabService')->checkTask();
+                $this->crontabService->checkTask();
                 swoole()->tick(60 * 1000, function () {
-                    app()->getShared('crontabService')->checkTask();
+                    $this->crontabService->checkTask();
                 });
             });
         }
