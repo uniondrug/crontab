@@ -47,9 +47,11 @@ class WorkerProcess extends Process
 
         $this->channel = $this->getOption('channel');
         $this->locker = $this->getOption('locker');
-        $this->maxTask = app()->getConfig()->path('crontab.workerMaxTask', 1024);
+        $this->maxTask = app()->getConfig()->path('crontab.worker_max_process', 1024);
 
         $this->process();
+
+        $this->process->exit(0);
     }
 
     /**
@@ -57,7 +59,6 @@ class WorkerProcess extends Process
      */
     public function process()
     {
-        $counter = 0;
         while (!$this->stop) {
             try {
                 // 锁定，争抢
@@ -67,11 +68,14 @@ class WorkerProcess extends Process
                     continue;
                 }
 
-                // reset connection
-                Connections::testConnections();
-
-                // 争抢到一个任务后，释放锁
+                // 争抢到一个任务后，释放锁，让其他工作进程可以并发
                 $this->locker->unlock();
+
+                // 设置当前工作进程为工作中
+                $this->crontabService->getWorkersTable()->setBusy($this->process->pid);
+
+                // 准备数据库连接
+                Connections::testConnections();
 
                 // 处理任务
                 $data = RuntimeTaskStruct::factory(json_decode($task));
@@ -79,17 +83,22 @@ class WorkerProcess extends Process
                     app()->getShared($data->handler)->handle([]);
                 }
 
-                $counter++;
+                // 处理任务计数器增加
+                $this->crontabService->getWorkersTable()->addCount($this->process->pid);
+
+                // 设置当前工作进程为闲置中
+                $this->crontabService->getWorkersTable()->setIdle($this->process->pid);
+
             } catch (\Exception $e) {
                 app()->getLogger('crontab')->error(sprintf("[CrontabWorkerProcess] Run task failed: %s", $e->getMessage()));
             }
 
-            // 处理超过一定数量，就退出
-            if ($counter >= $this->maxTask) {
+            // 处理超过一定数量，或者闲置进程过多，就自动退出
+            if ($this->crontabService->getWorkersTable()->getCount($this->process->pid) >= $this->maxTask) {
                 $this->stop = true;
             }
         }
 
-        app()->getLogger('crontab')->info("[CrontabWorkerProcess] Max task processed, restart");
+        app()->getLogger('crontab')->info("[CrontabWorkerProcess] process stopped");
     }
 }

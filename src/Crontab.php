@@ -11,6 +11,7 @@ use Uniondrug\Crontab\Structs\RuntimeTaskStruct;
 use Uniondrug\Crontab\Structs\ScheduleStruct;
 use Uniondrug\Crontab\Tables\RuntimeTable;
 use Uniondrug\Crontab\Tables\ScheduleTable;
+use Uniondrug\Crontab\Tables\WorkersTable;
 use Uniondrug\Framework\Injectable;
 use Uniondrug\Server\Task\TaskHandler;
 
@@ -20,21 +21,6 @@ class Crontab extends Injectable
      * 注解名称定义
      */
     const ANNOTATION_NAME = 'Schedule';
-
-    /**
-     * @const 任务未执行状态
-     */
-    const NORMAL = 0;
-
-    /**
-     * @const 任务已完成状态（已经投递）
-     */
-    const FINISH = 1;
-
-    /**
-     * @const 任务运行中
-     */
-    const START = 2;
 
     /**
      * @var int
@@ -50,6 +36,11 @@ class Crontab extends Injectable
      * @var RuntimeTable
      */
     private $runtimeTable;
+
+    /**
+     * @var WorkersTable
+     */
+    private $workersTable;
 
     /**
      * @return bool
@@ -71,8 +62,9 @@ class Crontab extends Injectable
      */
     private function initTable()
     {
-        $this->runtimeTable = RuntimeTable::setup($this->maxCount);
         $this->scheduleTable = ScheduleTable::setup($this->maxCount);
+        $this->runtimeTable = RuntimeTable::setup($this->maxCount * 20);
+        $this->workersTable = WorkersTable::setup(1024);
     }
 
     /**
@@ -211,7 +203,9 @@ class Crontab extends Injectable
 
         // 清理已经投递完成的任务
         foreach ($this->runtimeTable as $key => $value) {
-            if ($value['runStatus'] === self::FINISH) {
+            if ($this->runtimeTable->isFinished($key)) {
+                $this->runtimeTable->del($key); // recall
+                $this->runtimeTable->del($key);
                 $this->runtimeTable->del($key);
             }
         }
@@ -245,7 +239,7 @@ class Crontab extends Injectable
                             'handler'   => $scheduleStruct->handler,
                             'minute'    => $minute,
                             'second'    => $second,
-                            'runStatus' => self::NORMAL,
+                            'runStatus' => RuntimeTable::NORMAL,
                         ]);
                         $this->runtimeTable->add($runtimeTaskStruct);
                     }
@@ -276,7 +270,7 @@ class Crontab extends Injectable
             }
 
             // 到期并且未运行的
-            if (intval(date('s')) == $runtimeStruct->second && $runtimeStruct->runStatus == self::NORMAL) {
+            if (intval(date('s')) == $runtimeStruct->second && $runtimeStruct->runStatus == RuntimeTable::NORMAL) {
                 $data[$key] = $runtimeStruct;
             }
         }
@@ -293,7 +287,7 @@ class Crontab extends Injectable
      */
     public function startTask($key)
     {
-        return $this->runtimeTable->set($key, ['runStatus' => self::START]);
+        return $this->runtimeTable->setStart($key);
     }
 
     /**
@@ -311,7 +305,7 @@ class Crontab extends Injectable
             $this->scheduleTable->incr($runtimeStruct->taskKey, 'runTimes');
         }
 
-        return $this->runtimeTable->set($key, ['runStatus' => self::FINISH]);
+        return $this->runtimeTable->setFinish($key);
     }
 
     /**
@@ -328,6 +322,14 @@ class Crontab extends Injectable
     public function getRunTimeTable()
     {
         return $this->runtimeTable;
+    }
+
+    /**
+     * @return \Uniondrug\Crontab\Tables\WorkersTable
+     */
+    public function getWorkersTable()
+    {
+        return $this->workersTable;
     }
 
     /**

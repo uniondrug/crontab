@@ -25,9 +25,25 @@ class ExecProcess extends Process
     protected $locker;
 
     /**
+     * 启动时启动的工作进程数量
+     *
      * @var int
      */
-    protected $workerCount = 2;
+    protected $initWorkerCount = 2;
+
+    /**
+     * 作为备用的进程数量
+     *
+     * @var int
+     */
+    protected $idleWorkerCount = 2;
+
+    /**
+     * 最大进程数
+     *
+     * @var int
+     */
+    protected $maxWorkersCount = 32;
 
     /**
      * @var int
@@ -37,12 +53,12 @@ class ExecProcess extends Process
     /**
      * @var \SplQueue
      */
-    protected $tasks;
+    protected $taskQueue;
 
     /**
      * @var array
      */
-    protected $workers = [];
+    protected $lastWorkerId = 0;
 
     /**
      * @param \swoole_process $swoole_process
@@ -58,21 +74,22 @@ class ExecProcess extends Process
         console()->debug('[CrontabExecProcess] process started');
         app()->getLogger('crontab')->debug('[CrontabExecProcess] process started');
 
-        $this->workerCount = app()->getConfig()->path('crontab.workerCount', 2);
+        $this->initWorkerCount = app()->getConfig()->path('crontab.init_worker_count', 2);
+        $this->idleWorkerCount = app()->getConfig()->path('crontab.idle_worker_count', 2);
 
         $this->initLocker();
         $this->initChannel();
         $this->initWorkers();
-        $this->tasks = new \SplQueue();
+        $this->taskQueue = new \SplQueue();
 
-        // 定时器回收子进程
-        swoole()->tick(1 * 1000, [$this, 'workersManager']);
+        // 工作进程管理器
+        swoole()->tick(0.5 * 1000, [$this, 'workersManager']);
 
-        // Run
-        if (app()->has('crontabService')) {
-            swoole()->tick(0.5 * 1000, [$this, 'loadExecTask']);
-            swoole()->tick(0.5 * 1000, [$this, 'dispatch']);
-        }
+        // 待办任务检索器
+        swoole()->tick(0.5 * 1000, [$this, 'loadExecTask']);
+
+        // 待办任务分发器
+        swoole()->tick(0.5 * 1000, [$this, 'dispatch']);
     }
 
     /**
@@ -83,8 +100,7 @@ class ExecProcess extends Process
         // 取出每秒需要运行的任务
         $tasks = app()->getShared('crontabService')->getExecTasks();
         foreach ($tasks as $key => $runtimeTaskStruct) {
-            console()->debug("[CrontabExecProcess] Enqueue task: $key");
-            $this->tasks->enqueue(['key' => $key, 'val' => $runtimeTaskStruct]);
+            $this->taskQueue->enqueue(['key' => $key, 'val' => $runtimeTaskStruct]);
             app()->getShared('crontabService')->startTask($key);
         }
     }
@@ -94,15 +110,13 @@ class ExecProcess extends Process
      */
     public function dispatch()
     {
-        while (!$this->tasks->isEmpty()) {
+        while (!$this->taskQueue->isEmpty()) {
             if ($this->getChannelSize() > $this->channelSize) {
                 $this->locker->unlock();
                 continue;
             }
 
-            $task = $this->tasks->dequeue();
-            console()->debug("[CrontabExecProcess] Dequeue task: {$task['key']}");
-
+            $task = $this->taskQueue->dequeue();
             $this->channel->push($task['val']->toJson());
             $this->locker->unlock();
             app()->getShared('crontabService')->finishTask($task['key']);
@@ -144,18 +158,19 @@ class ExecProcess extends Process
      */
     protected function initWorkers()
     {
-        for ($i = 0; $i < $this->workerCount; $i++) {
-            $this->initWorker($i);
+        for ($i = 0; $i < $this->initWorkerCount; $i++) {
+            $this->initWorker();
         }
     }
 
     /**
      * @param int $id
      */
-    protected function initWorker($id = 0)
+    protected function initWorker()
     {
         Connections::dropConnections();
 
+        $id = $this->lastWorkerId;
         $pid = (new WorkerProcess(app()->getName() . " [CrontabWorkerProcess #$id]"))->configure([
             'channel' => $this->channel,
             'locker'  => $this->locker,
@@ -163,13 +178,16 @@ class ExecProcess extends Process
 
         if ($pid) {
             // 关联记录工作进程的PID
-            $this->workers[$id] = $pid;
+            $this->crontabService->getWorkersTable()->add($pid, $id);
+
             console()->debug("[CrontabExecProcess] Worker[$pid] #$id started");
             app()->getLogger('crontab')->debug("[CrontabExecProcess] Worker[$pid] #$id started");
         } else {
             console()->debug("[CrontabExecProcess] Start worker #$id failed");
             app()->getLogger('crontab')->error("[CrontabExecProcess] Start worker #$id failed");
         }
+
+        $this->lastWorkerId ++;
     }
 
     /**
@@ -189,19 +207,23 @@ class ExecProcess extends Process
      */
     public function workersManager()
     {
+        // 回收退出的子进程
         while ($ret = swoole_process::wait(false)) {
             $processId = $ret['pid'];
             $code = $ret['code'];
 
+            // 从进程列表清除出去
+            $this->crontabService->getWorkersTable()->del($processId);
+
             app()->getLogger('crontab')->info("[CrontabExecProcess] Worker[$processId] exited with code: $code");
             console()->info("[CrontabExecProcess] Worker[$processId] exited with code: $code");
+        }
 
-            // 重启一个Worker
-            foreach ($this->workers as $id => $pid) {
-                if ($pid == $processId) {
-                    $this->initWorker($id);
-                }
-            }
+        // 扫描和控制进程数量(多了的进程，会自动退出，少的，这里补上)
+        $absent = $this->idleWorkerCount - $this->crontabService->getWorkersTable()->getIdleCount();
+        while ($absent > 0 && count($this->crontabService->getWorkersTable()) < $this->maxWorkersCount) {
+            $this->initWorker();
+            $absent --;
         }
     }
 }
