@@ -95,6 +95,9 @@ class Crontab extends Injectable
                     continue;
                 }
                 $classAnnotations = $handlerAnnotations->getClassAnnotations();
+                if (!$classAnnotations) {
+                    continue;
+                }
                 if (!$classAnnotations->has(self::ANNOTATION_NAME)) {
                     continue;
                 }
