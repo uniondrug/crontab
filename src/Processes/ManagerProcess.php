@@ -8,9 +8,15 @@
 namespace Uniondrug\Crontab\Processes;
 
 use swoole_process;
+use Uniondrug\Server\Process;
 
-class ManagerProcess extends AbstractProcess
+class ManagerProcess extends Process
 {
+    /**
+     * @param \swoole_process $swoole_process
+     *
+     * @return callable|void
+     */
     public function handle(swoole_process $swoole_process)
     {
         parent::handle($swoole_process);
@@ -24,9 +30,9 @@ class ManagerProcess extends AbstractProcess
         if (app()->has('crontabService')) {
             $time = (60 - date('s')) * 1000; // 确保每分钟的0秒
             swoole()->after($time, function () {
-                app()->getShared('crontabService')->checkTask();
+                $this->crontabService->checkTask();
                 swoole()->tick(60 * 1000, function () {
-                    app()->getShared('crontabService')->checkTask();
+                    $this->crontabService->checkTask();
                 });
             });
         }
