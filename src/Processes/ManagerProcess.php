@@ -12,6 +12,11 @@ use Uniondrug\Server\Process;
 
 class ManagerProcess extends Process
 {
+    /**
+     * @param \swoole_process $swoole_process
+     *
+     * @return callable|void
+     */
     public function handle(swoole_process $swoole_process)
     {
         parent::handle($swoole_process);

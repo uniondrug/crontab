@@ -11,7 +11,6 @@ use Uniondrug\Crontab\Structs\RuntimeTaskStruct;
 use Uniondrug\Crontab\Structs\ScheduleStruct;
 use Uniondrug\Crontab\Tables\RuntimeTable;
 use Uniondrug\Crontab\Tables\ScheduleTable;
-use Uniondrug\Crontab\Tables\WorkersTable;
 use Uniondrug\Framework\Injectable;
 use Uniondrug\Server\Task\TaskHandler;
 
@@ -38,11 +37,6 @@ class Crontab extends Injectable
     private $runtimeTable;
 
     /**
-     * @var WorkersTable
-     */
-    private $workersTable;
-
-    /**
      * @return bool
      */
     public function init()
@@ -64,7 +58,6 @@ class Crontab extends Injectable
     {
         $this->scheduleTable = ScheduleTable::setup($this->maxCount);
         $this->runtimeTable = RuntimeTable::setup($this->maxCount * 20);
-        $this->workersTable = WorkersTable::setup(1024);
     }
 
     /**
@@ -323,14 +316,6 @@ class Crontab extends Injectable
     public function getRunTimeTable()
     {
         return $this->runtimeTable;
-    }
-
-    /**
-     * @return \Uniondrug\Crontab\Tables\WorkersTable
-     */
-    public function getWorkersTable()
-    {
-        return $this->workersTable;
     }
 
     /**
