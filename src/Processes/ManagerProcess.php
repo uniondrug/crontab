@@ -23,8 +23,7 @@ class ManagerProcess extends Process
 
         process_rename(app()->getName() . ' [CrontabManagerProcess]');
 
-        console()->debug('[CrontabManagerProcess] process started');
-        app()->getLogger('crontab')->debug('[CrontabManagerProcess] process started');
+        console()->debug('[Crontab] CrontabManagerProcess started');
 
         // Run
         if (app()->has('crontabService')) {

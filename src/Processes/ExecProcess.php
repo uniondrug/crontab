@@ -23,8 +23,7 @@ class ExecProcess extends Process
 
         process_rename(app()->getName() . ' [CrontabExecProcess]');
 
-        console()->debug('[CrontabExecProcess] process started');
-        app()->getLogger('crontab')->debug('[CrontabExecProcess] process started');
+        console()->debug('[Crontab] CrontabExecProcess started');
 
         // 待办任务分发
         swoole()->tick(0.5 * 1000, [$this, 'dispatch']);
@@ -40,11 +39,14 @@ class ExecProcess extends Process
         foreach ($tasks as $key => $runtimeTaskStruct) {
             $this->crontabService->startTask($key);
             try {
+                console()->debug('[Crontab] Handler=%s, dispatching', $runtimeTaskStruct->handler);
+
                 $this->taskDispatcher->dispatchByProcess($runtimeTaskStruct->handler, []);
                 $this->crontabService->finishTask($key);
+
+                console()->debug('[Crontab] Handler=%s, dispatched', $runtimeTaskStruct->handler);
             } catch (\Exception $e) {
-                console()->debug('[CrontabExecProcess] Dispatch schedule task failed: ' . $e->getMessage());
-                app()->getLogger('crontab')->debug('[CrontabExecProcess] Dispatch schedule task failed: ' . $e->getMessage());
+                console()->debug('[Crontab] Handler=%s, dispatch failed: ' . $e->getMessage());
             }
         }
     }
