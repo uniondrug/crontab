@@ -81,7 +81,7 @@ class Crontab extends Injectable
         //
         $path = $this->di->appPath() . '/Tasks';
         if (!file_exists($path) || !is_dir($path)) {
-            app()->getLogger('crontab')->error(sprintf("$path not exists"));
+            console()->error("[Crontab] '%s' not exists", $path);
 
             return false;
         }
@@ -113,7 +113,7 @@ class Crontab extends Injectable
                 $scheduleStruct->handler = $className;
 
                 if (!$scheduleStruct->cron || !CronExpression::isValidExpression($scheduleStruct->cron)) {
-                    app()->getLogger('crontab')->error(sprintf("[Handler: %s] Cron: %s is not a valid crontab expression", $scheduleStruct->handler, $scheduleStruct->cron));
+                    console()->error("[Crontab] handler=%s, '%s' is not a valid crontab expression", $scheduleStruct->cron, $scheduleStruct->handler);
                     continue;
                 }
                 if (!empty($scheduleStruct->start)) {
@@ -121,7 +121,7 @@ class Crontab extends Injectable
                         $scheduleStruct->start = $scheduleStruct->start . ' 00:00:00';
                     }
                     if (!preg_match('/^\d\d\d\d\-\d\d\-\d\d \d\d:\d\d:\d\d$/', $scheduleStruct->start)) {
-                        app()->getLogger('crontab')->error(sprintf("[Handler: %s] Start: %s is not a valid datetime", $scheduleStruct->handler, $scheduleStruct->start));
+                        console()->error("[Crontab] handler=%s, '%s' is not a valid datetime", $scheduleStruct->handler, $scheduleStruct->start);
                         continue;
                     }
                 }
@@ -130,14 +130,13 @@ class Crontab extends Injectable
                         $scheduleStruct->until = $scheduleStruct->until . ' 23:59:59';
                     }
                     if (!preg_match('/^\d\d\d\d\-\d\d\-\d\d \d\d:\d\d:\d\d$/', $scheduleStruct->until)) {
-                        app()->getLogger('crontab')->error(sprintf("[Handler: %s] Until: %s is not a valid datetime", $scheduleStruct->handler, $scheduleStruct->until));
+                        console()->error("[Crontab] handler=%s, '%s' is not a valid datetime", $scheduleStruct->handler, $scheduleStruct->until);
                         continue;
                     }
                 }
 
-                app()->getLogger('crontab')->debug(sprintf("[Handler: %s] %s, added", $scheduleStruct->handler, $scheduleStruct->toJson()));
-
                 $this->scheduleTable->add($scheduleStruct);
+                console()->debug("[Crontab] handler=%s, setting=%s, scheduled", $scheduleStruct->handler, $scheduleStruct->toJson());
             }
         }
 
@@ -168,7 +167,7 @@ class Crontab extends Injectable
         $scheduleStruct = ScheduleStruct::factory($value);
         if ($scheduleStruct->times > 0 && $scheduleStruct->runTimes >= $scheduleStruct->times) {
 
-            app()->getLogger('crontab')->info(sprintf("Task %s run up to max %d times. remove it.", $scheduleStruct->handler, $scheduleStruct->times));
+            console()->info("[Crontab] handler=%s, run up to max %d times. remove from schedule list", $scheduleStruct->handler, $scheduleStruct->times);
 
             $this->scheduleTable->del($key);
 
@@ -177,7 +176,7 @@ class Crontab extends Injectable
 
         if (!empty($scheduleStruct->until) && strtotime($scheduleStruct->until) < time()) {
 
-            app()->getLogger('crontab')->info(sprintf("Task %s run up to time %s. remove it.", $scheduleStruct->handler, $scheduleStruct->until));
+            console()->info("[Crontab] handler=%s, run up to time %s. remove from schedule list", $scheduleStruct->handler, $scheduleStruct->until);
 
             $this->scheduleTable->del($key);
 
