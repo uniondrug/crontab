@@ -25,6 +25,8 @@ class ManagerProcess extends Process
 
         console()->debug('[Crontab] CrontabManagerProcess started');
 
+        swoole()->tick(1.0 * 1000, [$this, 'checkParent']);
+
         // Run
         if (app()->has('crontabService')) {
             $time = (60 - date('s')) * 1000; // 确保每分钟的0秒
@@ -34,6 +36,19 @@ class ManagerProcess extends Process
                     $this->crontabService->checkTask();
                 });
             });
+        }
+    }
+
+    /**
+     * @return bool|void
+     */
+    public function checkParent()
+    {
+        $res = parent::checkParent();
+        if (!$res) {
+            console()->debug("[Crontab] Parent has gone away, quit");
+
+            $this->process->exit(0);
         }
     }
 }

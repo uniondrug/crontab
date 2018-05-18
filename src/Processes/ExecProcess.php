@@ -27,6 +27,21 @@ class ExecProcess extends Process
 
         // 待办任务分发
         swoole()->tick(0.5 * 1000, [$this, 'dispatch']);
+
+        swoole()->tick(1.0 * 1000, [$this, 'checkParent']);
+    }
+
+    /**
+     * @return bool|void
+     */
+    public function checkParent()
+    {
+        $res = parent::checkParent();
+        if (!$res) {
+            console()->debug("[Crontab] Parent has gone away, quit");
+
+            $this->process->exit(0);
+        }
     }
 
     /**
